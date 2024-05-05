@@ -1,0 +1,67 @@
+body {
+    display: flex;
+    font-family: "Sometype Mono";
+
+    height: 100vh;
+
+    margin: 0;
+
+    background: rgb(10, 10.4, 10);
+    color: rgb(220, 220, 220);
+}
+
+#content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    width: 100vw;
+    height: 100%;
+}
+
+#logs {
+    background-color: rgba(255, 255, 255, 0.02);
+    height: 300px;
+    width: 600px;
+    padding: 15px;
+
+    border-radius: 5px;
+    border: 2px solid rgba(255,255,255,0.05)
+}
+
+.log {
+    display: flex;
+    gap: 8px;
+
+    font-size: 15px;
+}
+
+.log .gray {
+    color: rgba(220,220,220,0.2);
+    display: block;
+    
+    width: 60px;
+
+    overflow-x: hidden;
+
+    transition-duration: 150ms;
+
+    cursor: default;
+    user-select: none;
+}
+
+.log .gray span {
+    display: block;
+    transform: translate(-50px, 0);
+    transition-duration: 150ms;
+}
+
+.log:hover .gray {
+    width: 111px;
+}
+
+.log:hover .gray span {
+    display: block;
+    transform: translate(0);
+}

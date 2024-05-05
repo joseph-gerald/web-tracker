@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const trackingController = require('./controllers/trackingController');
 const errorController = require('./controllers/errorController');
 const apiController = require('./controllers/apiController');
 
@@ -10,6 +11,9 @@ router.get('/robots.min.txt', apiController.getRobotsMinified);
 // api logic
 router.post('/api/v1/query', apiController.query);
 router.post('/api/v1/ping', apiController.ping);
+
+// tracking
+router.get('/tracker/js', trackingController.getTrackingScript);
 
 router.use((req, res, next) => {
     if (req.method === 'GET') {

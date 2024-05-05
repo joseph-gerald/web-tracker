@@ -1,38 +1,88 @@
-let clients = [];
+const trackingController = require('./controllers/trackingController');
 
-function handleConnection(client, request) {
+let connections = [];
+
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i !== bytes.length; i++) {
+        bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+    }
+    return bytes;
+}
+
+function handleConnection(connection, request) {
     const headers = request.headers;
+    let client = null;
 
-    clients.push(client);
+    connections.push(connection);
 
     function onClose() {
         console.log(`Connection Closed`);
-        
-        var position = clients.indexOf(client);
-        clients.splice(position, 1);
+
+        var position = connections.indexOf(connection);
+        connections.splice(position, 1);
     }
 
     function onMessage(data) {
-        if (data.indexOf("keepalive") == 0) {
-            const count = data.split("/")[1];
+        if (client == null) {
+            const [id, initialization_vector, key] = trackingController.encryptor.decrypt(
+                new TextDecoder().decode(hexToBytes(data))
+            ).split(":").map(part => decodeURI(atob(part)));
 
-            if (isNaN(parseInt(count))) throw Error("Invalid Keepalive");
+            //console.log(id, initialization_vector, key)
+
+            console.log(`New client connected with id: ${id}`);
+            client = trackingController.clients.find(client => client.id == id);
+
+            if (client == null || client.connection) return connection.close();
+
+            client.connection = connection;
+
+            client.aes.iv = initialization_vector.split("").map(byte => byte.charCodeAt() - 32);
+            client.aes.key = key.split("").map(byte => byte.charCodeAt() - 32);
+
+            connection.send(client.aes.encrypt(`${client.lifespan.start}:${client.nonce}`));
+
+            client.stage = 0;
             return;
         }
 
+        switch (client.stage) {
+            case 0:
+                const [date, nonce] = client.aes.decrypt(data).split(":");
+                const deltaTime = date - client.lifespan.start;
 
+                const valid = deltaTime == nonce - client.nonce;
+
+                if (!valid) return connection.close();
+                client.stage = 1;
+                break;
+            case 1:
+                {
+                    const [type, msgData] = client.aes.decrypt(data).split("/").map(part => decodeURI(atob(part)));
+                    console.log(`INCOMING: ${type} ${msgData}`);
+
+                    switch (type) {
+                        case "PING":
+                            const count = parseInt(msgData);
+                            client.send("PONG", count);
+                            break;
+                    }
+                }
+                break;
+        }
     }
 
-    client.on('message', data => {
+    connection.on('message', data => {
         try {
             onMessage(data.toString())
         } catch (error) {
-            client.close();
+            connection.close();
             console.log(error)
         }
     });
 
-    client.on('close', onClose);
+    connection.on('close', onClose);
 }
 
 module.exports = handleConnection;
