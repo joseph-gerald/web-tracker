@@ -45,7 +45,7 @@ function unpad(data) {
 }
 
 const isLocalhost = window.location.host.indexOf("localhost") == 0;
-const protocol = isLocalhost ? "ws://" : "wss://";
+const protocol = location.href.startsWith("https://") ? "wss://" : "ws://";
 
 const socket = new WebSocket(protocol + window.location.host);
 
@@ -77,10 +77,11 @@ function addLog(message) {
 
 function log(log) {
     console.log(log);
+    addLog(log);
 }
 
 socket.onopen = () => {
-    addLog("1/3 Established connection to server");
+    log("1/3 Established connection to server");
 
     const payload = serverEncryptor.encrypt(
         [
@@ -92,7 +93,7 @@ socket.onopen = () => {
     socket.send(toHex(payload))
 
     stage = 1;
-    addLog("2/3 Exchanging secret with server...");
+    log("2/3 Exchanging secret with server...");
 }
 
 socket.onmessage = (event) => {
@@ -102,7 +103,7 @@ socket.onmessage = (event) => {
     const time = Date.now();
 
     socket.send(encrypt(`${time}:${nonce + (time - date)}`));
-    addLog("3/3 Successfully exchanged secret with server");
+    log("3/3 Successfully exchanged secret with server");
 
     connection = new Connection(socket, encrypt, decrypt);
 }

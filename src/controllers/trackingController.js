@@ -8,6 +8,8 @@ const key = new NodeRSA({ b: 1024 });
 const JSEncrypt = require('node-jsencrypt');
 const encryptor = new JSEncrypt();
 
+const { minify } = require("terser");
+
 encryptor.setPublicKey(key.exportKey('public'));
 encryptor.setPrivateKey(key.exportKey('private'));
 
@@ -24,10 +26,12 @@ function decode(string) {
 }
 
 class Client {
-    constructor(headers) {
+    constructor(headers, prevId) {
         let parser = new UAParser(headers["user-agent"]);
         this.ip = headers["cf-connecting-ip"];
         this.id = randomUUID();
+
+        this.prevId = prevId;
 
         this.connection = null;
 
@@ -90,8 +94,8 @@ function readPrivate(file_path) {
 }
 
 module.exports = {
-    getTrackingScript: (req, res) => {
-        const client = new Client(req.headers);
+    getTrackingScript: async (req, res) => {
+        const client = new Client(req.headers, req.cookies["client_id"]);
         clients.push(client);
 
         let tracker = readPrivate("tracker.js");
@@ -111,8 +115,14 @@ module.exports = {
             tracker = tracker.replace(element[0], element[1]);
         });
 
+        res.cookie('client_id', client.id, { httpOnly: true });
+        res.setHeader('Content-Type', 'application/javascript');
 
-        res.send(tracker);
+        const code = (await minify(tracker)).code;
+
+        res.send(
+            code
+        );
     },
     clients,
     encryptor

@@ -1,5 +1,11 @@
 const trackingController = require('./controllers/trackingController');
 
+const handlers = [
+    TelemetryHandler,
+] = [
+    require('./handlers/telemetryHandler'),
+]
+
 let connections = [];
 
 function hexToBytes(hex) {
@@ -12,7 +18,14 @@ function hexToBytes(hex) {
 
 function handleConnection(connection, request) {
     const headers = request.headers;
+    const cookie = request.headers.cookie;
+
     let client = null;
+
+    if (
+        !cookie ||
+        !trackingController.clients.map(client => client.id).find(id => cookie.includes(id))
+    ) return connection.close();
 
     connections.push(connection);
 
@@ -34,7 +47,7 @@ function handleConnection(connection, request) {
             console.log(`New client connected with id: ${id}`);
             client = trackingController.clients.find(client => client.id == id);
 
-            if (client == null || client.connection) return connection.close();
+            if (client == null || !cookie.includes(client.id) || client.connection) return connection.close();
 
             client.connection = connection;
 
@@ -60,13 +73,19 @@ function handleConnection(connection, request) {
             case 1:
                 {
                     const [type, msgData] = client.aes.decrypt(data).split("/").map(part => decodeURI(atob(part)));
-                    console.log(`INCOMING: ${type} ${msgData}`);
 
                     switch (type) {
                         case "PING":
                             const count = parseInt(msgData);
                             client.send("PONG", count);
                             break;
+                        default:
+                            for (const handler of handlers) {
+                                if (handler.handles(type)) {
+                                    handler.handle(session, type, data);
+                                }
+                            }
+                            console.log(`INCOMING: ${type} ${msgData}`);
                     }
                 }
                 break;
